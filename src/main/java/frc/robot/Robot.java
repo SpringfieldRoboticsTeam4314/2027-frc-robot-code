@@ -30,6 +30,7 @@ public class Robot extends TimedRobot {
         CommandScheduler.getInstance().run(); 
 
         m_robotContainer.updateVisionOdometry();
+        
     }
 
     @Override

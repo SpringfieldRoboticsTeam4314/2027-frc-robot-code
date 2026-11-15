@@ -14,7 +14,7 @@ import org.photonvision.PhotonPoseEstimator;
 import org.photonvision.targeting.PhotonPipelineResult;
 
 public class VisionSubsystem extends SubsystemBase {
-    private final PhotonCamera camera = new PhotonCamera("front-left-cam");
+    private final PhotonCamera camera = new PhotonCamera("camera 1");
     private PhotonPoseEstimator photonEstimator;
     private Optional<EstimatedRobotPose> latestEstimatedPose = Optional.empty();
 
