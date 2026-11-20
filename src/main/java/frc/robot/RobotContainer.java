@@ -7,6 +7,8 @@ package frc.robot;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
+import org.photonvision.EstimatedRobotPose;
+
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 
@@ -40,12 +42,12 @@ public class RobotContainer {
 
     /** Updates the CTRE drivetrain pose estimator using the latest AprilTag measurement. */
     public void updateVisionOdometry() {
-        vision.getEstimatedGlobalPose().ifPresent(est -> {
+        for (EstimatedRobotPose est : vision.getEstimatedGlobalPoses()) {
             drivetrain.addVisionMeasurement(
-                est.estimatedPose.toPose2d(), 
+                est.estimatedPose.toPose2d(),
                 est.timestampSeconds
             );
-        });
+        }
     }
     
     public RobotContainer() {
