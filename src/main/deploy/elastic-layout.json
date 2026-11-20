@@ -25,21 +25,8 @@
             }
           },
           {
-            "title": "photonvision_Port_1181_Input_MJPEG_Server",
-            "x": 128.0,
-            "y": 0.0,
-            "width": 384.0,
-            "height": 256.0,
-            "type": "Camera Stream",
-            "properties": {
-              "topic": "/CameraPublisher/photonvision_Port_1181_Input_MJPEG_Server",
-              "period": 0.06,
-              "rotation_turns": 0
-            }
-          },
-          {
             "title": "FMSInfo",
-            "x": 1408.0,
+            "x": 640.0,
             "y": 384.0,
             "width": 384.0,
             "height": 128.0,
@@ -72,7 +59,7 @@
           },
           {
             "title": "Swerve Drive",
-            "x": 1024.0,
+            "x": 384.0,
             "y": 384.0,
             "width": 256.0,
             "height": 256.0,
@@ -82,6 +69,19 @@
               "period": 0.06,
               "show_robot_rotation": true,
               "rotation_unit": "Radians"
+            }
+          },
+          {
+            "title": "Driver Cam",
+            "x": 128.0,
+            "y": 0.0,
+            "width": 384.0,
+            "height": 384.0,
+            "type": "Camera Stream",
+            "properties": {
+              "topic": "/CameraPublisher/Driver Cam",
+              "period": 0.06,
+              "rotation_turns": 0
             }
           }
         ]
