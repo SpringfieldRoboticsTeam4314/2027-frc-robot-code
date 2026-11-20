@@ -9,6 +9,9 @@ import com.ctre.phoenix6.HootAutoReplay;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import edu.wpi.first.cameraserver.CameraServer;
+import edu.wpi.first.cscore.UsbCamera;
+import edu.wpi.first.wpilibj.TimedRobot;
 
 public class Robot extends TimedRobot {
     private Command m_autonomousCommand;
@@ -83,5 +86,14 @@ public class Robot extends TimedRobot {
 
     @Override
     public void simulationPeriodic() {}
+    @Override
+    public void robotInit() {
+        // Starts capture on USB port 0 and publishes an MJPEG stream to NetworkTables
+        UsbCamera camera = CameraServer.startAutomaticCapture("Driver Cam", 0);
+    
+        // Keep resolution & FPS modest to stay well under the 4 Mbps FMS bandwidth limit
+        camera.setResolution(320, 240);
+        camera.setFPS(15);
+    }
     
 }
