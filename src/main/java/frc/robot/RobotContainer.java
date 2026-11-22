@@ -12,6 +12,8 @@ import org.photonvision.EstimatedRobotPose;
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 
+import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -24,14 +26,18 @@ import frc.robot.subsystems.VisionSubsystem;
 
 public class RobotContainer {
     private double MaxSpeed = Constants.Robot.MaxSpeed; // kSpeedAt12Volts desired top speed
-    private double MaxAngularRate = RotationsPerSecond.of(0.50).in(RadiansPerSecond); // 3/4 of a rotation per second max angular velocity
+    private double MaxAngularRate = RotationsPerSecond.of(0.50).in(RadiansPerSecond); // 1/2 of a rotation per second max angular velocity
 
     /* Setting up bindings for necessary control of the swerve drive platform */
     private final SwerveRequest.FieldCentric drive = new SwerveRequest.FieldCentric()
             .withDeadband(MaxSpeed * 0.1).withRotationalDeadband(MaxAngularRate * 0.1) // Add a 10% deadband
             .withDriveRequestType(DriveRequestType.OpenLoopVoltage); // Use open-loop control for drive motors
+    private final SwerveRequest.RobotCentric followRequest = new SwerveRequest.RobotCentric()
+            .withDriveRequestType(DriveRequestType.OpenLoopVoltage);
     private final SwerveRequest.SwerveDriveBrake brake = new SwerveRequest.SwerveDriveBrake();
     private final SwerveRequest.PointWheelsAt point = new SwerveRequest.PointWheelsAt();
+
+    private final PIDController turnController = new PIDController(0.03, 0.0, 0.002);
 
     private final Telemetry logger = new Telemetry(MaxSpeed);
 
@@ -49,11 +55,41 @@ public class RobotContainer {
             );
         }
     }
-    
+
+    /** Drives toward and centers on a specific AprilTag ID until it fills desiredAreaPercent of the frame. */
+    public Command followAprilTagCommand(int tagId, double desiredAreaPercent) {
+        turnController.setSetpoint(0.0);
+        turnController.setTolerance(1.5);
+
+        return drivetrain.applyRequest(() -> {
+            var targetOpt = vision.getTargetWithId(tagId);
+
+            if (targetOpt.isEmpty()) {
+                return followRequest.withVelocityX(0).withVelocityY(0).withRotationalRate(0);
+            }
+
+            var target = targetOpt.get();
+
+            // Negative sign maps positive yaw (left) to counter-clockwise (positive) rotation
+            double turnOutput = -turnController.calculate(target.getYaw());
+            turnOutput = MathUtil.clamp(turnOutput, -MaxAngularRate * 0.5, MaxAngularRate * 0.5);
+
+            double forwardSpeed = 0.0;
+            if (target.getArea() < desiredAreaPercent) {
+                forwardSpeed = 0.8;
+            }
+
+            return followRequest
+                .withVelocityX(forwardSpeed)
+                .withVelocityY(0.0)
+                .withRotationalRate(turnOutput);
+        });
+    }
+
     public RobotContainer() {
         configureBindings();
     }
-    
+
     private void configureBindings() {
         // Note that X is defined as forward according to WPILib convention,
         // and Y is defined as to the left according to WPILib convention.
@@ -77,6 +113,9 @@ public class RobotContainer {
         joystick.b().whileTrue(drivetrain.applyRequest(() ->
             point.withModuleDirection(new Rotation2d(-joystick.getLeftY(), -joystick.getLeftX()))
         ));
+
+        // Hold X to follow AprilTag ID 7 until it reaches 4.0% frame area (change 7 to your test tag ID)
+        joystick.x().whileTrue(followAprilTagCommand(7, 4.0));
 
         // Run SysId routines when holding back/start and X/Y.
         // Note that each routine should be run exactly once in a single log.
