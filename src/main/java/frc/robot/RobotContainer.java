@@ -126,7 +126,7 @@ public class RobotContainer {
         ));
 
         // Hold X to follow AprilTag ID 7 until it reaches 4.0% frame area (change 7 to your test tag ID)
-        joystick.x().toggleOnTrue(followAprilTagCommand(7, 4.0));
+        joystick.x().toggleOnTrue(followAprilTagCommand(0, 4.0));
 
         // Run SysId routines when holding back/start and X/Y.
         // Note that each routine should be run exactly once in a single log.
