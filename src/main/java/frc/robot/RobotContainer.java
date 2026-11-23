@@ -70,10 +70,10 @@ public class RobotContainer {
         turnController.setTolerance(1.5);
 
         strafeController.setSetpoint(0.0);
-        strafeController.setTolerance(0.05); // within 5 cm laterally
+        strafeController.setTolerance(0.05);
 
         driveController.setSetpoint(desiredDistanceMeters);
-        driveController.setTolerance(0.05); // within 5 cm distance
+        driveController.setTolerance(0.05);
 
         return drivetrain.applyRequest(() -> {
             var targetOpt = vision.getTargetWithId(tagId);
@@ -86,38 +86,36 @@ public class RobotContainer {
             var target = detected.target();
             var camToTarget = target.getBestCameraToTarget();
 
-            double distanceError = camToTarget.getX() - desiredDistanceMeters;
-            double lateralError = camToTarget.getY();
-            double yawError = target.getYaw();
-
-            // 1. Forward / backward (VelocityX): positive if tag is farther than desiredDistanceMeters
+            // 1. Forward / backward (VelocityX)
             double forwardSpeed = 0.0;
             if (!driveController.atSetpoint()) {
-                forwardSpeed = driveController.calculate(desiredDistanceMeters - distanceError);
+                // Negate because PID computes (setpoint - measurement):
+                // farther tag (measurement > setpoint) -> negative PID -> positive forwardSpeed (+X)
+                forwardSpeed = -driveController.calculate(camToTarget.getX());
                 if (detected.isRearCamera()) {
                     forwardSpeed = -forwardSpeed;
                 }
-                forwardSpeed = MathUtil.clamp(forwardSpeed, -1.0, 1.0);
+                forwardSpeed = MathUtil.clamp(forwardSpeed, -0.8, 0.8);
             }
 
-            // 2. Side to side (VelocityY): strafe to keep lateralError near 0
+            // 2. Side to side (VelocityY)
             double strafeSpeed = 0.0;
             if (!strafeController.atSetpoint()) {
-                strafeSpeed = strafeController.calculate(lateralError);
+                strafeSpeed = strafeController.calculate(camToTarget.getY());
                 if (detected.isRearCamera()) {
                     strafeSpeed = -strafeSpeed;
                 }
-                strafeSpeed = MathUtil.clamp(strafeSpeed, -MaxSpeed * 0.35, MaxSpeed * 0.35);
+                strafeSpeed = MathUtil.clamp(strafeSpeed, -MaxSpeed * 0.25, MaxSpeed * 0.25);
             }
 
-            // 3. Turn (RotationalRate): turn to keep yawError near 0
+            // 3. Turn (RotationalRate)
             double turnOutput = 0.0;
             if (!turnController.atSetpoint()) {
-                turnOutput = -turnController.calculate(yawError);
+                turnOutput = -turnController.calculate(target.getYaw());
                 if (detected.isRearCamera()) {
                     turnOutput = -turnOutput;
                 }
-                turnOutput = MathUtil.clamp(turnOutput, -MaxAngularRate * 0.5, MaxAngularRate * 0.5);
+                turnOutput = MathUtil.clamp(turnOutput, -MaxAngularRate * 0.4, MaxAngularRate * 0.4);
             }
 
             return followRequest
@@ -126,6 +124,7 @@ public class RobotContainer {
                 .withRotationalRate(turnOutput);
         });
     }
+
     public RobotContainer() {
         configureBindings();
     }
