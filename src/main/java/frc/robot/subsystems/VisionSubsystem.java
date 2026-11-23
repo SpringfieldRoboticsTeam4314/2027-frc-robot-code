@@ -35,13 +35,13 @@ public class VisionSubsystem extends SubsystemBase {
     // Front camera: +X forward, 0 yaw (facing straight forward)
     private final Transform3d robotToCam1 = new Transform3d(
         new Translation3d(0.381, 0.0, 0.40),
-        new Rotation3d(0, Math.toRadians(-15), 0.0)
+        new Rotation3d(0, Math.toRadians(0), 0.0)
     );
 
     // Back camera: -X backward, 180 deg (Math.PI) yaw (facing straight backward)
     private final Transform3d robotToCam2 = new Transform3d(
         new Translation3d(-0.381, 0.0, 0.40),
-        new Rotation3d(0, Math.toRadians(-15), Math.PI)
+        new Rotation3d(0, Math.toRadians(0), Math.PI)
     );
 
     public VisionSubsystem() {
