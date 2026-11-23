@@ -37,10 +37,9 @@ public class RobotContainer {
     private final SwerveRequest.SwerveDriveBrake brake = new SwerveRequest.SwerveDriveBrake();
     private final SwerveRequest.PointWheelsAt point = new SwerveRequest.PointWheelsAt();
 
-    
     private final PIDController turnController = new PIDController(0.03, 0.0, 0.002);
     private final PIDController strafeController = new PIDController(0.05, 0.0, 0.002);
-
+    private final PIDController driveController = new PIDController(0.25, 0.0, 0.01);
     private final Telemetry logger = new Telemetry(MaxSpeed);
 
     private final CommandXboxController joystick = new CommandXboxController(0);
@@ -66,6 +65,9 @@ public class RobotContainer {
         strafeController.setSetpoint(0.0);
         strafeController.setTolerance(1.5);
 
+        driveController.setSetpoint(desiredAreaPercent);
+        driveController.setTolerance(0.25); // Stop adjusting within +/- 0.25% frame area
+
         return drivetrain.applyRequest(() -> {
             var targetOpt = vision.getTargetWithId(tagId);
 
@@ -77,25 +79,31 @@ public class RobotContainer {
             var target = detected.target();
             double yaw = target.getYaw();
 
+            // Lateral strafe (VelocityY)
             double strafeSpeed = strafeController.calculate(yaw);
             if (detected.isRearCamera()) {
                 strafeSpeed = -strafeSpeed;
             }
             strafeSpeed = MathUtil.clamp(strafeSpeed, -MaxSpeed * 0.25, MaxSpeed * 0.25);
 
-            double turnOutput = 0.0;
-
+            // Forward/backward (VelocityX) based on tag area
             double forwardSpeed = 0.0;
-            if (target.getArea() < desiredAreaPercent) {
-                forwardSpeed = detected.isRearCamera() ? -0.6 : 0.6;
+            if (!driveController.atSetpoint()) {
+                forwardSpeed = driveController.calculate(target.getArea());
+                if (detected.isRearCamera()) {
+                    forwardSpeed = -forwardSpeed;
+                }
+                forwardSpeed = MathUtil.clamp(forwardSpeed, -0.8, 0.8);
             }
+
+            double turnOutput = 0.0;
 
             return followRequest
                 .withVelocityX(forwardSpeed)
                 .withVelocityY(strafeSpeed)
                 .withRotationalRate(turnOutput);
         });
-}
+    }
 
     public RobotContainer() {
         configureBindings();
