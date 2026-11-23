@@ -37,7 +37,9 @@ public class RobotContainer {
     private final SwerveRequest.SwerveDriveBrake brake = new SwerveRequest.SwerveDriveBrake();
     private final SwerveRequest.PointWheelsAt point = new SwerveRequest.PointWheelsAt();
 
+    
     private final PIDController turnController = new PIDController(0.03, 0.0, 0.002);
+    private final PIDController strafeController = new PIDController(0.05, 0.0, 0.002);
 
     private final Telemetry logger = new Telemetry(MaxSpeed);
 
@@ -61,6 +63,9 @@ public class RobotContainer {
         turnController.setSetpoint(0.0);
         turnController.setTolerance(1.5);
 
+        strafeController.setSetpoint(0.0);
+        strafeController.setTolerance(1.5);
+
         return drivetrain.applyRequest(() -> {
             var targetOpt = vision.getTargetWithId(tagId);
 
@@ -68,23 +73,29 @@ public class RobotContainer {
                 return followRequest.withVelocityX(0).withVelocityY(0).withRotationalRate(0);
             }
 
-            var target = targetOpt.get();
+            var detected = targetOpt.get();
+            var target = detected.target();
+            double yaw = target.getYaw();
 
-            // Negative sign maps positive yaw (left) to counter-clockwise (positive) rotation
-            double turnOutput = -turnController.calculate(target.getYaw());
-            turnOutput = MathUtil.clamp(turnOutput, -MaxAngularRate * 0.5, MaxAngularRate * 0.5);
+            double strafeSpeed = strafeController.calculate(yaw);
+            if (detected.isRearCamera()) {
+                strafeSpeed = -strafeSpeed;
+            }
+            strafeSpeed = MathUtil.clamp(strafeSpeed, -MaxSpeed * 0.25, MaxSpeed * 0.25);
+
+            double turnOutput = 0.0;
 
             double forwardSpeed = 0.0;
             if (target.getArea() < desiredAreaPercent) {
-                forwardSpeed = 0.8;
+                forwardSpeed = detected.isRearCamera() ? -0.6 : 0.6;
             }
 
             return followRequest
                 .withVelocityX(forwardSpeed)
-                .withVelocityY(0.0)
+                .withVelocityY(strafeSpeed)
                 .withRotationalRate(turnOutput);
         });
-    }
+}
 
     public RobotContainer() {
         configureBindings();
@@ -115,7 +126,7 @@ public class RobotContainer {
         ));
 
         // Hold X to follow AprilTag ID 7 until it reaches 4.0% frame area (change 7 to your test tag ID)
-        joystick.x().whileTrue(followAprilTagCommand(7, 4.0));
+        joystick.x().toggleOnTrue(followAprilTagCommand(7, 4.0));
 
         // Run SysId routines when holding back/start and X/Y.
         // Note that each routine should be run exactly once in a single log.

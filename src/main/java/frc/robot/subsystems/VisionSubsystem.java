@@ -19,6 +19,8 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 public class VisionSubsystem extends SubsystemBase {
+    public record DetectedTarget(PhotonTrackedTarget target, boolean isRearCamera) {}
+
     private final PhotonCamera camera1 = new PhotonCamera("camera 1");
     private final PhotonCamera camera2 = new PhotonCamera("camera 2");
 
@@ -30,16 +32,16 @@ public class VisionSubsystem extends SubsystemBase {
 
     private final List<EstimatedRobotPose> latestEstimatedPoses = new ArrayList<>();
 
-    // Physical position of camera 1 relative to the center of the robot (meters & radians)
+    // Front camera: +X forward, 0 yaw (facing straight forward)
     private final Transform3d robotToCam1 = new Transform3d(
-        new Translation3d(0.25, 0.20, 0.40),
-        new Rotation3d(0, Math.toRadians(-15), Math.toRadians(15))
+        new Translation3d(0.381, 0.0, 0.40),
+        new Rotation3d(0, Math.toRadians(-15), 0.0)
     );
 
-    // Physical position of camera 2 relative to the center of the robot (meters & radians)
+    // Back camera: -X backward, 180 deg (Math.PI) yaw (facing straight backward)
     private final Transform3d robotToCam2 = new Transform3d(
-        new Translation3d(0.25, -0.20, 0.40),
-        new Rotation3d(0, Math.toRadians(-15), Math.toRadians(-15))
+        new Translation3d(-0.381, 0.0, 0.40),
+        new Rotation3d(0, Math.toRadians(-15), Math.PI)
     );
 
     public VisionSubsystem() {
@@ -80,15 +82,15 @@ public class VisionSubsystem extends SubsystemBase {
     }
 
     /** Finds a tracked target with a specific AprilTag ID across both cameras, if visible. */
-    public Optional<PhotonTrackedTarget> getTargetWithId(int targetId) {
+    public Optional<DetectedTarget> getTargetWithId(int targetId) {
         for (PhotonTrackedTarget target : latestResult1.getTargets()) {
             if (target.getFiducialId() == targetId) {
-                return Optional.of(target);
+                return Optional.of(new DetectedTarget(target, false));
             }
         }
         for (PhotonTrackedTarget target : latestResult2.getTargets()) {
             if (target.getFiducialId() == targetId) {
-                return Optional.of(target);
+                return Optional.of(new DetectedTarget(target, true));
             }
         }
         return Optional.empty();
