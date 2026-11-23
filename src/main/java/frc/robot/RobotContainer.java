@@ -38,9 +38,8 @@ public class RobotContainer {
     private final SwerveRequest.PointWheelsAt point = new SwerveRequest.PointWheelsAt();
 
     private final PIDController turnController = new PIDController(0.03, 0.0, 0.002);
-    private final PIDController strafeController = new PIDController(0.05, 0.0, 0.002);
-    private final PIDController driveController = new PIDController(0.6, 0.0, 0.02);
-    
+    private final PIDController strafeController = new PIDController(1.0, 0.0, 0.05);
+    private final PIDController driveController = new PIDController(1.0, 0.0, 0.05);
     private final Telemetry logger = new Telemetry(MaxSpeed);
 
     private final CommandXboxController joystick = new CommandXboxController(0);
@@ -62,12 +61,19 @@ public class RobotContainer {
      * Orbits around tagId while keeping the camera aimed at it and holding desiredAreaPercent.
      * Pass positive orbitSpeed (e.g. 0.4) to orbit left, negative (e.g. -0.4) to orbit right, or 0.0 to just approach/back up.
      */
-    public Command followAprilTagCommand(int tagId, double desiredAreaPercent, double orbitSpeed) {
+    /**
+     * Moves forward/backward, strafes left/right, and turns to hold a fixed position
+     * (desiredDistanceMeters in front of the tag, centered at 0 deg yaw) relative to tagId.
+     */
+    public Command followAprilTagCommand(int tagId, double desiredDistanceMeters) {
         turnController.setSetpoint(0.0);
         turnController.setTolerance(1.5);
 
-        driveController.setSetpoint(desiredAreaPercent);
-        driveController.setTolerance(0.2);
+        strafeController.setSetpoint(0.0);
+        strafeController.setTolerance(0.05); // within 5 cm laterally
+
+        driveController.setSetpoint(desiredDistanceMeters);
+        driveController.setTolerance(0.05); // within 5 cm distance
 
         return drivetrain.applyRequest(() -> {
             var targetOpt = vision.getTargetWithId(tagId);
@@ -78,39 +84,48 @@ public class RobotContainer {
 
             var detected = targetOpt.get();
             var target = detected.target();
-            double yaw = target.getYaw();
-            double area = target.getArea();
+            var camToTarget = target.getBestCameraToTarget();
 
-            // 1. Keep the tag centered horizontally in the camera as we orbit
-            double turnOutput = -turnController.calculate(yaw);
-            if (detected.isRearCamera()) {
-                turnOutput = -turnOutput;
-            }
-            turnOutput = MathUtil.clamp(turnOutput, -MaxAngularRate * 0.5, MaxAngularRate * 0.5);
+            double distanceError = camToTarget.getX() - desiredDistanceMeters;
+            double lateralError = camToTarget.getY();
+            double yawError = target.getYaw();
 
-            // 2. Drive forward if tag is too small (< desiredAreaPercent), backward if too big (> desiredAreaPercent)
+            // 1. Forward / backward (VelocityX): positive if tag is farther than desiredDistanceMeters
             double forwardSpeed = 0.0;
             if (!driveController.atSetpoint()) {
-                forwardSpeed = driveController.calculate(area);
+                forwardSpeed = driveController.calculate(desiredDistanceMeters - distanceError);
                 if (detected.isRearCamera()) {
                     forwardSpeed = -forwardSpeed;
                 }
                 forwardSpeed = MathUtil.clamp(forwardSpeed, -1.0, 1.0);
             }
 
-            // 3. Strafe tangentially to orbit around the tag
-            double strafeSpeed = orbitSpeed;
-            if (detected.isRearCamera()) {
-                strafeSpeed = -strafeSpeed;
+            // 2. Side to side (VelocityY): strafe to keep lateralError near 0
+            double strafeSpeed = 0.0;
+            if (!strafeController.atSetpoint()) {
+                strafeSpeed = strafeController.calculate(lateralError);
+                if (detected.isRearCamera()) {
+                    strafeSpeed = -strafeSpeed;
+                }
+                strafeSpeed = MathUtil.clamp(strafeSpeed, -MaxSpeed * 0.35, MaxSpeed * 0.35);
             }
-            strafeSpeed = MathUtil.clamp(strafeSpeed, -MaxSpeed * 0.3, MaxSpeed * 0.3);
+
+            // 3. Turn (RotationalRate): turn to keep yawError near 0
+            double turnOutput = 0.0;
+            if (!turnController.atSetpoint()) {
+                turnOutput = -turnController.calculate(yawError);
+                if (detected.isRearCamera()) {
+                    turnOutput = -turnOutput;
+                }
+                turnOutput = MathUtil.clamp(turnOutput, -MaxAngularRate * 0.5, MaxAngularRate * 0.5);
+            }
 
             return followRequest
                 .withVelocityX(forwardSpeed)
                 .withVelocityY(strafeSpeed)
                 .withRotationalRate(turnOutput);
         });
-}
+    }
     public RobotContainer() {
         configureBindings();
     }
@@ -140,7 +155,7 @@ public class RobotContainer {
         ));
 
         // Hold X to follow AprilTag ID 7 until it reaches 4.0% frame area (change 7 to your test tag ID)
-        joystick.x().toggleOnTrue(followAprilTagCommand(7, 2.0, 0.4));
+        joystick.x().whileTrue(followAprilTagCommand(0, 1.0));
 
         // Run SysId routines when holding back/start and X/Y.
         // Note that each routine should be run exactly once in a single log.
