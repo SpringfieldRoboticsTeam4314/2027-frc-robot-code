@@ -111,7 +111,8 @@ public class RobotContainer {
             // 3. Turn (RotationalRate)
             double turnOutput = 0.0;
             if (!turnController.atSetpoint()) {
-                turnOutput = -turnController.calculate(target.getYaw());
+                // Flipped sign compared to the previous version so it turns TOWARD the tag
+                turnOutput = turnController.calculate(target.getYaw());
                 if (detected.isRearCamera()) {
                     turnOutput = -turnOutput;
                 }
